@@ -13,7 +13,7 @@ It's easy to [install](https://github.com/pypa/pipx?tab=readme-ov-file#on-linux)
 ```bash
 $ pipx install MetasploitSight
 $ export METASPLOITSIGHT_CONFIG=~/.MetasploitSight/conf.py
-$ git clone 
+$ git clone https://github.com/rapid7/metasploit-framework/ metasploit-repository
 ```
 
 The configuration for MetasploitSight should be defined in a Python file (e.g., ``~/.MetasploitSight/conf.py``).
@@ -22,9 +22,6 @@ You must then set an environment variable (``METASPLOITSIGHT_CONFIG``) with the 
 
 ## Usage
 
-```bash
-$ MetasploitSight
-```
 
 
 ## License

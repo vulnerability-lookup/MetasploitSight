@@ -34,4 +34,5 @@ eproject.cfg
 *.log
 
 metasploitsight/conf.py
-repository/
+metasploit-repository/
+

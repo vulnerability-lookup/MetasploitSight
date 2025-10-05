@@ -159,6 +159,7 @@ def push_sighting_to_vulnerability_lookup(source, vulnerability, creation_date):
 
     # Post the JSON to Vulnerability-Lookup
     try:
+        return True
         r = vuln_lookup.create_sighting(sighting=sighting)
         if "message" in r:
             print(r["message"])
@@ -186,7 +187,7 @@ def process_added_entries(added_keys, entries_dict, commit_iso):
         cves = find_cves_in_entry(entry)
         if not cves:
             # no CVE found, skip
-            print(f"No CVE found for {key}, skipping.")
+            # print(f"No CVE found for {key}, skipping.")
             continue
         for cve in sorted(cves):
             source = f"({key})"
@@ -240,7 +241,7 @@ def main() -> None:
             creation_date = parse_mod_time_to_iso(mod_time) or datetime.now(timezone.utc).isoformat()
             cves = find_cves_in_entry(entry)
             if not cves:
-                print(f"No CVE found for {key} (init), skipping.")
+                # print(f"No CVE found for {key} (init), skipping.")
                 continue
             for cve in sorted(cves):
                 source = f"({key})"

@@ -1,7 +1,7 @@
 VULNERABILITY_LOOKUP_BASE_URL = "https://vulnerability.circl.lu/"
 VULNERABILITY_LOOKUP_AUTH_TOKEN = ""
 
-GIT_REPOSITORY = "repository"
+GIT_REPOSITORY = "metasploit-repository"
 
 SIGHTING_TYPE = "exploited"
 
