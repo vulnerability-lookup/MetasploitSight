@@ -1,7 +1,8 @@
 # MetasploitSight
 
-A client designed to retrieve vulnerability-related information from the MetaSploit Git repository of modules.
-The retrieved data is then transmitted to the
+A client designed to retrieve vulnerability-related information
+from the modules defined in the Metasploit Git repository (db/modules_metadata_base.json).
+The collected data is then transmitted as sightings to the
 [Vulnerability-Lookup](https://github.com/vulnerability-lookup/vulnerability-lookup) API as sightings.
 
 
