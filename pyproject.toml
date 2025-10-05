@@ -1,0 +1,76 @@
+[build-system]
+requires = ["poetry-core>=2.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[project]
+name = "MetasploitSight"
+version = "0.1.0"
+description = "A client designed to retrieve vulnerability-related observations from the Metasploit Git repository and pushes them to a Vulnerability-Lookup instance."
+authors = [
+    {name = "Cédric Bonhomme", email = "cedric.bonhomme@circl.lu"}
+]
+license = "GPL-3.0-or-later"
+readme = "README.md"
+keywords = ["Vulnerability-Lookup", "Vulnerability", "CVE", "Metasploit"]
+
+dynamic = ["classifiers"]
+
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "pyvulnerabilitylookup (>=2.14.0)",
+    "requests (>=2.32.5)",
+    "valkey (>=6.1.0,<7.0.0)"
+]
+
+
+[project.urls]
+Homepage = "https://github.com/vulnerability-lookup/MetasploitSight"
+Repository = "https://github.com/vulnerability-lookup/MetasploitSight"
+Changelog = "https://github.com/vulnerability-lookup/MetasploitSight/blob/main/CHANGELOG.md"
+
+
+[project.scripts]
+MetasploitSight = "metasploitsight.main:main"
+
+
+[tool.poetry]
+requires-poetry = ">=2.0"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Security",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"
+]
+include = [
+    "README.md",
+    "COPYING",
+    "metasploitsight/conf_sample.py",
+]
+
+
+[tool.mypy]
+python_version = "3.13"
+check_untyped_defs = true
+ignore_errors = false
+ignore_missing_imports = true
+strict_optional = true
+no_implicit_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unreachable = true
+
+show_error_context = true
+pretty = true
+
+exclude = "build|dist|docs"
+
+[tool.isort]
+profile = "black"

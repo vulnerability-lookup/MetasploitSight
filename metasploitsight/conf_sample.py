@@ -1,0 +1,13 @@
+VULNERABILITY_LOOKUP_BASE_URL = "https://vulnerability.circl.lu/"
+VULNERABILITY_LOOKUP_AUTH_TOKEN = ""
+
+GIT_REPOSITORY = "repository"
+
+SIGHTING_TYPE = "exploited"
+
+
+# Hearbeat mechanism
+HEARTBEAT_ENABLED = True
+VALKEY_HOST = "127.0.0.1"
+VALKEY_PORT = 10002
+EXPIRATION_PERIOD = 18000
