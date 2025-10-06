@@ -207,14 +207,21 @@ def process_added_entries(added_keys, entries_dict, commit_iso):
             # print(f"No CVE found for {key}, skipping.")
             continue
         if module_path := entry.get("path", ""):
-            source = f"Metasploit ({module_path})"
+            source = f"https://github.com/rapid7/metasploit-framework/blob/master{module_path})"
         else:
             source = f"Metasploit ({key})"
+
+        mod_time = entry.get("mod_time")
+        creation_date = (
+            parse_mod_time_to_iso(mod_time)
+            or datetime.now(timezone.utc).isoformat()
+        )
+
         for cve in sorted(cves):
             print(
                 f"Found {cve} in {key} (commit date {commit_iso}) -> pushing sighting"
             )
-            push_sighting_to_vulnerability_lookup(source, cve, commit_iso)
+            push_sighting_to_vulnerability_lookup(source, cve, creation_date)
 
 
 def main() -> None:
@@ -262,7 +269,7 @@ def main() -> None:
         for key in added_keys:
             entry = current.get(key, {})
             if module_path := entry.get("path", ""):
-                source = f"Metasploit ({module_path})"
+                source = f"https://github.com/rapid7/metasploit-framework/blob/master{module_path}"
             else:
                 source = f"Metasploit ({key})"
             mod_time = entry.get("mod_time")
