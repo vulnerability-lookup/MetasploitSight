@@ -144,6 +144,16 @@ def parse_mod_time_to_iso(mod_time_str):
             return None
 
 
+def to_datetime(value: str) -> datetime:
+    """Convert an ISO 8601 string to a timezone-aware datetime object."""
+    dt = datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        # If the string had no timezone info, assume UTC
+        from datetime import timezone
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def push_sighting_to_vulnerability_lookup(source, vulnerability, creation_date):
     """Create a sighting from an incoming status and push it to the Vulnerability-Lookup instance."""
     print("Pushing sighting to Vulnerability-Lookup…")
@@ -157,10 +167,8 @@ def push_sighting_to_vulnerability_lookup(source, vulnerability, creation_date):
         "type": config.SIGHTING_TYPE,
         "source": source,
         "vulnerability": vulnerability,
-        "creation_timestamp": creation_date,
+        "creation_timestamp": to_datetime(creation_date),
     }
-
-    print(sighting)
 
     # Post the JSON to Vulnerability-Lookup
     try:
