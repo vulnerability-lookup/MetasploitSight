@@ -74,3 +74,8 @@ exclude = "build|dist|docs"
 
 [tool.isort]
 profile = "black"
+
+[dependency-groups]
+dev = [
+    "pre-commit (>=4.3.0,<5.0.0)"
+]

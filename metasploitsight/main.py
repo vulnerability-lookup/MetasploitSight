@@ -257,7 +257,7 @@ def main() -> None:
     if arguments.init:
         # Bootstrap mode: treat all entries in the working tree copy as "added"
         try:
-            with open(os.path.join(REPO_PATH, MODULES), "r", encoding="utf-8") as fh:
+            with open(os.path.join(REPO_PATH, MODULES), encoding="utf-8") as fh:
                 current = json.load(fh)
         except Exception as e:
             print(f"Failed to load current {MODULES}: {e}")
