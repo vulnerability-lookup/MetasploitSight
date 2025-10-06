@@ -1,17 +1,15 @@
 import argparse
+import json
 import os
 import re
 import subprocess
-import json
-from email.utils import parsedate_to_datetime
-from pathlib import Path
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 from pyvulnerabilitylookup import PyVulnerabilityLookup
 
 from metasploitsight import config
 from metasploitsight.monitoring import heartbeat, log
-
 
 REPO_PATH = config.GIT_REPOSITORY
 MODULES = "db/modules_metadata_base.json"  # Path to check for Metasploit modules
@@ -150,6 +148,7 @@ def to_datetime(value: str) -> datetime:
     if dt.tzinfo is None:
         # If the string had no timezone info, assume UTC
         from datetime import timezone
+
         dt = dt.replace(tzinfo=timezone.utc)
     return dt
 
