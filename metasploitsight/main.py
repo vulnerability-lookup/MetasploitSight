@@ -16,7 +16,7 @@ from metasploitsight.monitoring import heartbeat, log
 REPO_PATH = config.GIT_REPOSITORY
 MODULES = "db/modules_metadata_base.json"  # Path to check for Metasploit modules
 CVE_PATTERN = re.compile(r"CVE-\d{4}-\d{4,7}")  # Pattern for CVE identifiers
-SINCE_DAYS = "4 day ago"  # same window you used in get_new_commits()
+SINCE_DAYS = "4 day ago"  # same window used in get_new_commits()
 
 
 def git_pull():
@@ -44,7 +44,9 @@ def get_commits_touching_file(since=SINCE_DAYS):
     """
     try:
         # list commits touching the file since the period, each line a commit hash
-        out = run_git(["log", f"--since='{since}'", "--pretty=format:%H", "--", MODULES])
+        out = run_git(
+            ["log", f"--since='{since}'", "--pretty=format:%H", "--", MODULES]
+        )
         commits = [line.strip() for line in out.splitlines() if line.strip()]
         return commits
     except subprocess.CalledProcessError:
@@ -146,7 +148,8 @@ def push_sighting_to_vulnerability_lookup(source, vulnerability, creation_date):
     """Create a sighting from an incoming status and push it to the Vulnerability-Lookup instance."""
     print("Pushing sighting to Vulnerability-Lookup…")
     vuln_lookup = PyVulnerabilityLookup(
-        config.VULNERABILITY_LOOKUP_BASE_URL, token=config.VULNERABILITY_LOOKUP_AUTH_TOKEN
+        config.VULNERABILITY_LOOKUP_BASE_URL,
+        token=config.VULNERABILITY_LOOKUP_AUTH_TOKEN,
     )
 
     # Create the sighting
@@ -156,6 +159,8 @@ def push_sighting_to_vulnerability_lookup(source, vulnerability, creation_date):
         "vulnerability": vulnerability,
         "creation_timestamp": creation_date,
     }
+
+    print(sighting)
 
     # Post the JSON to Vulnerability-Lookup
     try:
@@ -169,8 +174,13 @@ def push_sighting_to_vulnerability_lookup(source, vulnerability, creation_date):
                 level = "warning"
             log(level, f"push_sighting_to_vulnerability_lookup: {r['message']}")
     except Exception as e:
-        print(f"Error when sending POST request to the Vulnerability-Lookup server:\n{e}")
-        log("info", f"Error when sending POST request to the Vulnerability-Lookup server: {e}")
+        print(
+            f"Error when sending POST request to the Vulnerability-Lookup server:\n{e}"
+        )
+        log(
+            "info",
+            f"Error when sending POST request to the Vulnerability-Lookup server: {e}",
+        )
 
     print("\n")
 
@@ -191,7 +201,9 @@ def process_added_entries(added_keys, entries_dict, commit_iso):
             continue
         for cve in sorted(cves):
             source = f"({key})"
-            print(f"Found {cve} in {key} (commit date {commit_iso}) -> pushing sighting")
+            print(
+                f"Found {cve} in {key} (commit date {commit_iso}) -> pushing sighting"
+            )
             push_sighting_to_vulnerability_lookup(source, cve, commit_iso)
 
 
@@ -220,7 +232,9 @@ def main() -> None:
 
     commits = get_commits_touching_file()
     if not commits and not arguments.init:
-        print("No commits touching modules file in the window and not --init; nothing to do.")
+        print(
+            "No commits touching modules file in the window and not --init; nothing to do."
+        )
         log("info", "No relevant commits found. MetasploitSight execution completed.")
         return
 
@@ -238,14 +252,19 @@ def main() -> None:
         for key in added_keys:
             entry = current.get(key, {})
             mod_time = entry.get("mod_time")
-            creation_date = parse_mod_time_to_iso(mod_time) or datetime.now(timezone.utc).isoformat()
+            creation_date = (
+                parse_mod_time_to_iso(mod_time)
+                or datetime.now(timezone.utc).isoformat()
+            )
             cves = find_cves_in_entry(entry)
             if not cves:
                 # print(f"No CVE found for {key} (init), skipping.")
                 continue
             for cve in sorted(cves):
                 source = f"({key})"
-                print(f"[init] Found {cve} in {key} (mod_time {mod_time}) -> pushing sighting")
+                print(
+                    f"[init] Found {cve} in {key} (mod_time {mod_time}) -> pushing sighting"
+                )
                 push_sighting_to_vulnerability_lookup(source, cve, creation_date)
 
         log("info", "Init run completed.")
