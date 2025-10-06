@@ -213,8 +213,7 @@ def process_added_entries(added_keys, entries_dict, commit_iso):
 
         mod_time = entry.get("mod_time")
         creation_date = (
-            parse_mod_time_to_iso(mod_time)
-            or datetime.now(timezone.utc).isoformat()
+            parse_mod_time_to_iso(mod_time) or datetime.now(timezone.utc).isoformat()
         )
 
         for cve in sorted(cves):
@@ -227,12 +226,12 @@ def process_added_entries(added_keys, entries_dict, commit_iso):
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="MetasploitSight",
-        description="Find new Metasploit modules from the official Metasploit repository.",
+        description="Find Metasploit modules from the official Metasploit repository.",
     )
     parser.add_argument(
         "--init",
         action="store_true",
-        help="Find modules even if no new commits were detected.",
+        help="Find modules even if no new commits were detected. For the first run.",
     )
 
     arguments = parser.parse_args()

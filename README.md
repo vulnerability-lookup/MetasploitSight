@@ -1,15 +1,15 @@
 # MetasploitSight
 
-A client designed to retrieve vulnerability-related information
-from the modules defined in the Metasploit Git repository (db/modules_metadata_base.json).
-The collected data is then transmitted as sightings to the
-[Vulnerability-Lookup](https://github.com/vulnerability-lookup/vulnerability-lookup) API as sightings.
+A client designed to retrieve vulnerability-related information from the modules available in Metasploit.
+It monitors changes to the file [db/modules_metadata_base.json](https://github.com/rapid7/metasploit-framework/tree/master/db).
+
+The collected data is then transmitted to the
+[Vulnerability-Lookup](https://github.com/vulnerability-lookup/vulnerability-lookup) API  as sightings.
 
 
 ## Installation
 
 [pipx](https://github.com/pypa/pipx) is an easy way to install and run Python applications in isolated environments.
-It's easy to [install](https://github.com/pypa/pipx?tab=readme-ov-file#on-linux).
 
 ```bash
 $ pipx install MetasploitSight
@@ -23,6 +23,21 @@ You must then set an environment variable (``METASPLOITSIGHT_CONFIG``) with the 
 
 ## Usage
 
+Run the client:
+
+```
+$ MetasploitSight
+```
+
+Starts the MetasploitSight client. It fetches updates from the official Metasploit repository and
+checks db/modules_metadata_base.json for changes.
+
+
+Show available commands and options:
+
+```
+$ MetasploitSight --help
+```
 
 
 ## License

@@ -6,7 +6,7 @@ build-backend = "poetry.core.masonry.api"
 [project]
 name = "MetasploitSight"
 version = "0.1.0"
-description = "A client designed to retrieve vulnerability-related information from the modules defined in the Metasploit Git repository (db/modules_metadata_base.json)."
+description = "A client designed to retrieve vulnerability-related information from the modules available in Metasploit."
 authors = [
     {name = "Cédric Bonhomme", email = "cedric.bonhomme@circl.lu"}
 ]
