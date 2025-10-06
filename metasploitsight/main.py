@@ -155,7 +155,7 @@ def push_sighting_to_vulnerability_lookup(source, vulnerability, creation_date):
     # Create the sighting
     sighting = {
         "type": config.SIGHTING_TYPE,
-        "source": f"Metasploit {source}",
+        "source": source,
         "vulnerability": vulnerability,
         "creation_timestamp": creation_date,
     }
@@ -164,7 +164,6 @@ def push_sighting_to_vulnerability_lookup(source, vulnerability, creation_date):
 
     # Post the JSON to Vulnerability-Lookup
     try:
-        return True
         r = vuln_lookup.create_sighting(sighting=sighting)
         if "message" in r:
             print(r["message"])
@@ -194,13 +193,17 @@ def process_added_entries(added_keys, entries_dict, commit_iso):
     """
     for key in added_keys:
         entry = entries_dict.get(key, {})
+
         cves = find_cves_in_entry(entry)
         if not cves:
             # no CVE found, skip
             # print(f"No CVE found for {key}, skipping.")
             continue
+        if module_path := entry.get("path", ""):
+            source = f"Metasploit ({module_path})"
+        else:
+            source = f"Metasploit ({key})"
         for cve in sorted(cves):
-            source = f"({key})"
             print(
                 f"Found {cve} in {key} (commit date {commit_iso}) -> pushing sighting"
             )
@@ -251,6 +254,10 @@ def main() -> None:
         # For init, use mod_time from entry when present, else now
         for key in added_keys:
             entry = current.get(key, {})
+            if module_path := entry.get("path", ""):
+                source = f"Metasploit ({module_path})"
+            else:
+                source = f"Metasploit ({key})"
             mod_time = entry.get("mod_time")
             creation_date = (
                 parse_mod_time_to_iso(mod_time)
@@ -261,7 +268,6 @@ def main() -> None:
                 # print(f"No CVE found for {key} (init), skipping.")
                 continue
             for cve in sorted(cves):
-                source = f"({key})"
                 print(
                     f"[init] Found {cve} in {key} (mod_time {mod_time}) -> pushing sighting"
                 )
