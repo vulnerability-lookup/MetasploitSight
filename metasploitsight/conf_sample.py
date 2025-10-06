@@ -3,7 +3,7 @@ VULNERABILITY_LOOKUP_AUTH_TOKEN = ""
 
 GIT_REPOSITORY = "metasploit-repository"
 
-SIGHTING_TYPE = "exploited"
+SIGHTING_TYPE = "seen"
 
 
 # Hearbeat mechanism
