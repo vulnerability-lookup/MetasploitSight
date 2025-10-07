@@ -191,12 +191,41 @@ def push_sighting_to_vulnerability_lookup(source, vulnerability, creation_date):
     print("\n")
 
 
+def get_file_creation_commit_and_date(file_path: str):
+    """
+    Return (commit_hash, ISO8601_date_string) of the commit that added the file.
+    Returns (None, None) if not found.
+    """
+    try:
+        # Always use a path relative to the repository root
+        rel_path = os.path.relpath(file_path, REPO_PATH)
+
+        out = run_git(
+            [
+                "log",
+                "--diff-filter=A",  # only additions
+                "--follow",  # track renames
+                "--format=%H %cI",  # commit hash and ISO date
+                "--",
+                rel_path,
+            ]
+        ).strip()
+
+        if not out:
+            return None, None
+
+        # take the *last* line (oldest addition)
+        first_commit_line = out.splitlines()[-1]
+        commit_hash, iso_date = first_commit_line.split(maxsplit=1)
+        return commit_hash, iso_date
+    except subprocess.CalledProcessError:
+        return None, None
+
+
 def process_added_entries(added_keys, entries_dict, commit_iso):
     """
     For each added module key, detect CVEs and push sightings.
-    - added_keys: iterable of keys added (strings)
-    - entries_dict: dict mapping keys->entry objects (loaded from commit content)
-    - commit_iso: ISO date string for creation_date
+    The creation date for sightings is the Git addition date of the file.
     """
     for key in added_keys:
         entry = entries_dict.get(key, {})
@@ -206,19 +235,25 @@ def process_added_entries(added_keys, entries_dict, commit_iso):
             # no CVE found, skip
             # print(f"No CVE found for {key}, skipping.")
             continue
-        if module_path := entry.get("path", ""):
-            source = f"https://github.com/rapid7/metasploit-framework/blob/master{module_path})"
+
+        module_path = entry.get("path", "")
+        if module_path:
+            source = f"https://github.com/rapid7/metasploit-framework/blob/master{module_path}"
+            # get the commit and date where this file first appeared
+            _, creation_date = get_file_creation_commit_and_date(
+                os.path.join(REPO_PATH, module_path.lstrip("/"))
+            )
         else:
             source = f"Metasploit ({key})"
+            creation_date = None
 
-        mod_time = entry.get("mod_time")
-        creation_date = (
-            parse_mod_time_to_iso(mod_time) or datetime.now(timezone.utc).isoformat()
-        )
+        # fallback if date not found
+        if not creation_date:
+            creation_date = commit_iso
 
         for cve in sorted(cves):
             print(
-                f"Found {cve} in {key} (commit date {commit_iso}) -> pushing sighting"
+                f"Found {cve} in {key} (file creation date {creation_date}) -> pushing sighting"
             )
             push_sighting_to_vulnerability_lookup(source, cve, creation_date)
 
@@ -254,8 +289,8 @@ def main() -> None:
         log("info", "No relevant commits found. MetasploitSight execution completed.")
         return
 
+    # Bootstrap mode: treat all entries in the working tree copy as "added"
     if arguments.init:
-        # Bootstrap mode: treat all entries in the working tree copy as "added"
         try:
             with open(os.path.join(REPO_PATH, MODULES), encoding="utf-8") as fh:
                 current = json.load(fh)
@@ -264,25 +299,31 @@ def main() -> None:
             return
 
         added_keys = list(current.keys())
-        # For init, use mod_time from entry when present, else now
         for key in added_keys:
             entry = current.get(key, {})
-            if module_path := entry.get("path", ""):
+            module_path = entry.get("path", "")
+            if module_path:
                 source = f"https://github.com/rapid7/metasploit-framework/blob/master{module_path}"
+                _, creation_date = get_file_creation_commit_and_date(
+                    os.path.join(REPO_PATH, module_path.lstrip("/"))
+                )
             else:
                 source = f"Metasploit ({key})"
-            mod_time = entry.get("mod_time")
-            creation_date = (
-                parse_mod_time_to_iso(mod_time)
-                or datetime.now(timezone.utc).isoformat()
-            )
+                creation_date = None
+
+            # fallback if no git info
+            if not creation_date:
+                creation_date = datetime.now(timezone.utc).isoformat()
+
             cves = find_cves_in_entry(entry)
             if not cves:
-                # print(f"No CVE found for {key} (init), skipping.")
+                # no CVE found, skip
+                # print(f"No CVE found for {key}, skipping.")
                 continue
+
             for cve in sorted(cves):
                 print(
-                    f"[init] Found {cve} in {key} (mod_time {mod_time}) -> pushing sighting"
+                    f"[init] Found {cve} in {key} (file creation date {creation_date}) -> pushing sighting"
                 )
                 push_sighting_to_vulnerability_lookup(source, cve, creation_date)
 
