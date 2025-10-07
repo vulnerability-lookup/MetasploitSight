@@ -4,7 +4,6 @@ import os
 import re
 import subprocess
 from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 
 from pyvulnerabilitylookup import PyVulnerabilityLookup
 
@@ -15,6 +14,10 @@ REPO_PATH = config.GIT_REPOSITORY
 MODULES = "db/modules_metadata_base.json"  # Path to check for Metasploit modules
 CVE_PATTERN = re.compile(r"CVE-\d{4}-\d{4,7}")  # Pattern for CVE identifiers
 SINCE_DAYS = "4 day ago"  # same window used in get_new_commits()
+
+
+# small in-memory cache (module_key -> (commit_hash, iso_date))
+_module_first_commit_cache = {}
 
 
 def git_pull():
@@ -49,6 +52,74 @@ def get_commits_touching_file(since=SINCE_DAYS):
         return commits
     except subprocess.CalledProcessError:
         return []
+
+
+def build_first_commit_map():
+    """
+    Build a mapping {module_key: (commit_hash, iso_date)} for the current modules in the
+    working tree by scanning the history of MODULES from oldest to newest and marking
+    the first commit where each key appears.
+
+    Returns the mapping (dict).
+    """
+    print("Building a mapping for the current modules in the working tree…")
+    # If already built in memory, return it (for later…)
+    if _module_first_commit_cache:
+        return _module_first_commit_cache
+
+    # Load current module keys from working tree
+    try:
+        with open(os.path.join(REPO_PATH, MODULES), "r", encoding="utf-8") as fh:
+            current = json.load(fh)
+    except Exception:
+        # If we can't load current file, return empty map
+        return {}
+
+    all_keys = set(current.keys())
+    first_seen = {}
+
+    # Get commits touching MODULES, oldest first
+    try:
+        commits_out = run_git(
+            ["log", "--pretty=format:%H", "--reverse", "--", MODULES]
+        ).strip()
+    except subprocess.CalledProcessError:
+        return {}
+
+    if not commits_out:
+        return {}
+
+    for commit in commits_out.splitlines():
+        # Load the file content at this commit once
+        try:
+            content = run_git(["show", f"{commit}:{MODULES}"])
+        except subprocess.CalledProcessError:
+            # skip problematic commit
+            continue
+
+        try:
+            obj = json.loads(content)
+        except Exception:
+            continue
+
+        # For every key present in obj but not already recorded, record this commit
+        for key in obj.keys():
+            if key in first_seen:
+                continue
+            if key in all_keys:
+                iso_date = get_commit_date_iso(commit)
+                first_seen[key] = (commit, iso_date)
+
+        # If we've found first-seen for all current keys, stop early
+        if len(first_seen) >= len(all_keys):
+            break
+
+    # Populate the cache and return
+    # For keys not found in history, we'll leave them absent (caller will fallback)
+    for k, v in first_seen.items():
+        _module_first_commit_cache[k] = v
+
+    return _module_first_commit_cache
 
 
 def load_json_at_commit(commit):
@@ -121,27 +192,6 @@ def find_cves_in_entry(entry_obj):
     return cves
 
 
-def parse_mod_time_to_iso(mod_time_str):
-    """
-    Parse mod_time like '2025-05-21 08:32:40 +0000' to ISO 8601 string.
-    Return None if parsing fails.
-    """
-    if not mod_time_str:
-        return None
-    try:
-        dt = datetime.strptime(mod_time_str, "%Y-%m-%d %H:%M:%S %z")
-        return dt.isoformat()
-    except Exception:
-        # try email.utils parser
-        try:
-            dt = parsedate_to_datetime(mod_time_str)
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt.isoformat()
-        except Exception:
-            return None
-
-
 def to_datetime(value: str) -> datetime:
     """Convert an ISO 8601 string to a timezone-aware datetime object."""
     dt = datetime.fromisoformat(value)
@@ -191,41 +241,11 @@ def push_sighting_to_vulnerability_lookup(source, vulnerability, creation_date):
     print("\n")
 
 
-def get_file_creation_commit_and_date(file_path: str):
-    """
-    Return (commit_hash, ISO8601_date_string) of the commit that added the file.
-    Returns (None, None) if not found.
-    """
-    try:
-        # Always use a path relative to the repository root
-        rel_path = os.path.relpath(file_path, REPO_PATH)
-
-        out = run_git(
-            [
-                "log",
-                "--diff-filter=A",  # only additions
-                "--follow",  # track renames
-                "--format=%H %cI",  # commit hash and ISO date
-                "--",
-                rel_path,
-            ]
-        ).strip()
-
-        if not out:
-            return None, None
-
-        # take the *last* line (oldest addition)
-        first_commit_line = out.splitlines()[-1]
-        commit_hash, iso_date = first_commit_line.split(maxsplit=1)
-        return commit_hash, iso_date
-    except subprocess.CalledProcessError:
-        return None, None
-
-
 def process_added_entries(added_keys, entries_dict, commit_iso):
     """
     For each added module key, detect CVEs and push sightings.
-    The creation date for sightings is the Git addition date of the file.
+    The creation date for sightings is the commit_iso (the commit that introduced the keys
+    in db/modules_metadata_base.json).
     """
     for key in added_keys:
         entry = entries_dict.get(key, {})
@@ -233,27 +253,20 @@ def process_added_entries(added_keys, entries_dict, commit_iso):
         cves = find_cves_in_entry(entry)
         if not cves:
             # no CVE found, skip
-            # print(f"No CVE found for {key}, skipping.")
             continue
 
         module_path = entry.get("path", "")
         if module_path:
             source = f"https://github.com/rapid7/metasploit-framework/blob/master{module_path}"
-            # get the commit and date where this file first appeared
-            _, creation_date = get_file_creation_commit_and_date(
-                os.path.join(REPO_PATH, module_path.lstrip("/"))
-            )
         else:
             source = f"Metasploit ({key})"
-            creation_date = None
 
-        # fallback if date not found
-        if not creation_date:
-            creation_date = commit_iso
+        # The module was added in the commit whose ISO date we received
+        creation_date = commit_iso
 
         for cve in sorted(cves):
             print(
-                f"Found {cve} in {key} (file creation date {creation_date}) -> pushing sighting"
+                f"Found {cve} in {key} (commit date {creation_date}) -> pushing sighting"
             )
             push_sighting_to_vulnerability_lookup(source, cve, creation_date)
 
@@ -298,27 +311,25 @@ def main() -> None:
             print(f"Failed to load current {MODULES}: {e}")
             return
 
+        # Build the first-commit map once
+        first_commit_map = build_first_commit_map()
+
         added_keys = list(current.keys())
         for key in added_keys:
             entry = current.get(key, {})
             module_path = entry.get("path", "")
             if module_path:
                 source = f"https://github.com/rapid7/metasploit-framework/blob/master{module_path}"
-                _, creation_date = get_file_creation_commit_and_date(
-                    os.path.join(REPO_PATH, module_path.lstrip("/"))
-                )
             else:
                 source = f"Metasploit ({key})"
-                creation_date = None
 
-            # fallback if no git info
+            # get creation date from the map; fallback to now if missing
+            commit_hash, creation_date = first_commit_map.get(key, (None, None))
             if not creation_date:
                 creation_date = datetime.now(timezone.utc).isoformat()
 
             cves = find_cves_in_entry(entry)
             if not cves:
-                # no CVE found, skip
-                # print(f"No CVE found for {key}, skipping.")
                 continue
 
             for cve in sorted(cves):
@@ -342,7 +353,7 @@ def main() -> None:
             print(f"No added entries in commit {commit}")
             continue
         commit_iso = get_commit_date_iso(commit)
-        print(f"Commit {commit} added {len(added)} entries. Processing...")
+        print(f"Commit {commit} added {len(added)} entries. Processing…")
         process_added_entries(added, this_version, commit_iso)
 
     log("info", "MetasploitSight execution completed.")
