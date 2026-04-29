@@ -17,7 +17,7 @@ SINCE_DAYS = "4 day ago"  # same window used in get_new_commits()
 
 
 # small in-memory cache (module_key -> (commit_hash, iso_date))
-_module_first_commit_cache = {}
+_module_first_commit_cache: dict[str, tuple[str, str]] = {}
 
 
 def git_pull():
@@ -203,7 +203,21 @@ def to_datetime(value: str) -> datetime:
     return dt
 
 
-def push_sighting_to_vulnerability_lookup(source, vulnerability, creation_date):
+def entry_to_sighting_content(entry: object) -> str:
+    """Convert an entry object to a stable string payload for sighting content."""
+    if entry is None:
+        return ""
+    if isinstance(entry, str):
+        return entry
+    try:
+        return json.dumps(entry, sort_keys=True, ensure_ascii=True)
+    except (TypeError, ValueError):
+        return str(entry)
+
+
+def push_sighting_to_vulnerability_lookup(
+    source: str, vulnerability: str, entry: str, creation_date: str
+) -> None:
     """Create a sighting from an incoming status and push it to the Vulnerability-Lookup instance."""
     print("Pushing sighting to Vulnerability-Lookup…")
     vuln_lookup = PyVulnerabilityLookup(
@@ -215,6 +229,7 @@ def push_sighting_to_vulnerability_lookup(source, vulnerability, creation_date):
     sighting = {
         "type": config.SIGHTING_TYPE,
         "source": source,
+        "content": entry if config.PUSH_SIGHTING_CONTENT else None,
         "vulnerability": vulnerability,
         "creation_timestamp": to_datetime(creation_date),
     }
@@ -249,6 +264,7 @@ def process_added_entries(added_keys, entries_dict, commit_iso):
     """
     for key in added_keys:
         entry = entries_dict.get(key, {})
+        entry_content = entry_to_sighting_content(entry)
 
         cves = find_cves_in_entry(entry)
         if not cves:
@@ -268,7 +284,9 @@ def process_added_entries(added_keys, entries_dict, commit_iso):
             print(
                 f"Found {cve} in {key} (commit date {creation_date}) -> pushing sighting"
             )
-            push_sighting_to_vulnerability_lookup(source, cve, creation_date)
+            push_sighting_to_vulnerability_lookup(
+                source, cve, entry_content, creation_date
+            )
 
 
 def main() -> None:
@@ -317,6 +335,7 @@ def main() -> None:
         added_keys = list(current.keys())
         for key in added_keys:
             entry = current.get(key, {})
+            entry_content = entry_to_sighting_content(entry)
             module_path = entry.get("path", "")
             if module_path:
                 source = f"https://github.com/rapid7/metasploit-framework/blob/master{module_path}"
@@ -336,7 +355,9 @@ def main() -> None:
                 print(
                     f"[init] Found {cve} in {key} (file creation date {creation_date}) -> pushing sighting"
                 )
-                push_sighting_to_vulnerability_lookup(source, cve, creation_date)
+                push_sighting_to_vulnerability_lookup(
+                    source, cve, entry_content, creation_date
+                )
 
         log("info", "Init run completed.")
         return
